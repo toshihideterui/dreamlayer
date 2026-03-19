@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dream Layer</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Noto+Serif+JP:wght@200;300;400&display=swap" rel="stylesheet">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#050510">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js');
+    });
+  }
+</script>
+<style>
+  :root {
+    --void: #050510; --deep: #080820; --ink: #0d0d2a;
+    --moon: #8090d0; --moon-dim: #404878; --moon-bright: #b0c0f0;
+    --violet: #6040b0; --violet-bright: #9060e0;
+    --mist: #101030; --silver: #a0a8c8;
+    --text: #c8d0e8; --text-dim: #606880;
+    --gold: #c0a840;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body {
+    background:var(--void); color:var(--text);
+    font-family:'Noto Serif JP',serif; font-weight:200;
+    min-height:100vh; overflow-x:hidden; cursor:crosshair;
+  }
+
+  #skyCanvas { position:fixed; inset:0; z-index:0; pointer-events:none; width:100%; height:100%; }
+
+  .lang-bar {
+    position:fixed; top:0; right:0; left:0; z-index:100;
+    display:flex; justify-content:center; align-items:center;
+    padding:8px 16px; gap:2px; flex-wrap:nowrap; overflow-x:auto;
+    background:linear-gradient(to bottom,rgba(5,5,16,0.95) 0%,transparent 100%);
+    scrollbar-width:none;
+  }
+  .lang-bar::-webkit-scrollbar { display:none; }
+  .lang-btn {
+    display:flex; align-items:center; gap:5px;
+    padding:10px 12px; background:transparent;
+    border:1px solid transparent; border-radius:2px;
+    color:var(--text-dim); font-family:inherit; font-size:0.68rem;
+    letter-spacing:0.04em; cursor:pointer; transition:all 0.25s; white-space:nowrap;
+    -webkit-tap-highlight-color:rgba(128,144,208,0.2);
+    touch-action:manipulation; min-height:44px;
+  }
+  .lang-btn:hover { color:var(--text); border-color:rgba(128,144,208,0.2); }
+  .lang-btn.active { color:var(--moon-bright); border-color:rgba(128,144,208,0.35); background:rgba(128,144,208,0.06); }
+
+  .wrap { position:relative; z-index:1; max-width:760px; margin:0 auto; padding:0 24px; }
+
+  header { text-align:center; padding:100px 0 50px; }
+  .moon-sigil { width:90px; height:90px; margin:0 auto 28px; position:relative; }
+  .moon-sigil svg { width:100%; height:100%; animation:moon-float 4s ease-in-out infinite; }
+  .moon-sigil::after {
+    content:''; position:absolute; inset:-14px; border-radius:50%;
+    background:radial-gradient(circle,rgba(128,144,208,0.15) 0%,transparent 70%);
+    animation:pulse-glow 4s ease-in-out infinite;
+  }
+  @keyframes moon-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+  @keyframes pulse-glow { 0%,100%{opacity:0.3;transform:scale(1)} 50%{opacity:0.8;transform:scale(1.1)} }
+
+  h1 {
+    font-family:'Cormorant Garamond',serif; font-weight:300;
+    font-size:clamp(2rem,5vw,3rem); letter-spacing:0.25em;
+    color:var(--moon-bright); margin-bottom:8px;
+    text-shadow:0 0 40px rgba(128,144,208,0.5);
+  }
+  .subtitle { font-size:0.72rem; letter-spacing:0.35em; color:var(--text-dim); margin-bottom:40px; }
+
+  /* タブ */
+  .tab-bar {
+    display:flex; gap:0; margin-bottom:32px;
+    border-bottom:1px solid rgba(128,144,208,0.15);
+  }
+  .tab-btn {
+    flex:1; padding:12px; background:transparent;
+    border:none; border-bottom:2px solid transparent;
+    color:var(--text-dim); font-family:inherit; font-size:0.75rem;
+    letter-spacing:0.15em; cursor:pointer; transition:all .3s;
+    touch-action:manipulation;
+  }
+  .tab-btn.active { color:var(--moon-bright); border-bottom-color:var(--moon); }
+  .tab-btn:hover { color:var(--text); }
+
+  .tab-panel { display:none; }
+  .tab-panel.active { display:block; }
+
+  .oracle-form {
+    position:relative; border:1px solid rgba(128,144,208,0.15);
+    padding:40px 32px; margin-bottom:32px; background:rgba(13,13,42,0.6);
+    backdrop-filter:blur(10px);
+  }
+  .corner { position:absolute; width:16px; height:16px; border-color:var(--moon-dim); border-style:solid; }
+  .corner.tl { top:-1px; left:-1px; border-width:1px 0 0 1px; }
+  .corner.tr { top:-1px; right:-1px; border-width:1px 1px 0 0; }
+  .corner.bl { bottom:-1px; left:-1px; border-width:0 0 1px 1px; }
+  .corner.br { bottom:-1px; right:-1px; border-width:0 1px 1px 0; }
+
+  .field { margin-bottom:20px; }
+  .field label { display:block; font-size:0.65rem; letter-spacing:0.15em; color:var(--text-dim); margin-bottom:6px; }
+  .field input, .field select, .field textarea {
+    width:100%; background:rgba(255,255,255,0.03);
+    border:1px solid rgba(128,144,208,0.15); border-radius:1px;
+    color:var(--text); padding:10px 14px; outline:none;
+    font-family:inherit; font-size:0.82rem; transition:border-color .3s;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color:rgba(128,144,208,0.4); }
+  .field select option { background:#0d0d2a; }
+
+  /* 感情選択ボタン */
+  .emotion-grid { display:flex; flex-wrap:wrap; gap:8px; }
+  .emotion-btn {
+    padding:8px 14px; background:transparent;
+    border:1px solid rgba(128,144,208,0.2); border-radius:20px;
+    color:var(--text-dim); font-family:inherit; font-size:0.75rem;
+    cursor:pointer; transition:all .3s; touch-action:manipulation;
+  }
+  .emotion-btn.active {
+    border-color:var(--moon); color:var(--moon-bright);
+    background:rgba(128,144,208,0.1);
+  }
+  .emotion-btn:hover { border-color:var(--moon-dim); color:var(--text); }
+
+  .invoke-btn {
+    width:100%; padding:16px; background:transparent;
+    border:1px solid rgba(128,144,208,0.4); color:var(--moon-bright);
+    font-family:inherit; font-size:0.8rem; letter-spacing:0.25em;
+    cursor:pointer; transition:all .4s; touch-action:manipulation;
+  }
+  .invoke-btn:hover { background:rgba(128,144,208,0.08); border-color:rgba(128,144,208,0.7); box-shadow:0 0 30px rgba(128,144,208,0.15); }
+
+  .error-msg { display:none; margin-top:16px; padding:12px 16px; border:1px solid rgba(128,144,208,0.3); color:#9090d0; font-size:0.75rem; letter-spacing:0.05em; line-height:1.8; }
+  .error-msg.show { display:block; }
+
+  .loading-veil { display:none; text-align:center; padding:60px 0; }
+  .loading-veil.show { display:block; }
+  .orb {
+    width:60px; height:60px; margin:0 auto 24px; border-radius:50%;
+    background:radial-gradient(circle at 35% 35%,rgba(128,144,208,0.8),rgba(64,60,120,0.4));
+    box-shadow:0 0 40px rgba(128,144,208,0.3);
+    animation:orb-spin 2s ease-in-out infinite;
+  }
+  @keyframes orb-spin { 0%,100%{transform:scale(1);box-shadow:0 0 40px rgba(128,144,208,0.3)} 50%{transform:scale(1.2);box-shadow:0 0 60px rgba(128,144,208,0.5),0 0 100px rgba(96,64,176,0.3)} }
+  .loading-text { font-size:0.7rem; letter-spacing:0.4em; color:var(--text-dim); animation:fade-text 1.5s ease-in-out infinite; }
+  @keyframes fade-text { 0%,100%{opacity:0.3} 50%{opacity:1} }
+
+  .result-scroll { display:none; margin-bottom:32px; border:1px solid rgba(128,144,208,0.2); padding:40px 32px; background:rgba(13,13,42,0.7); backdrop-filter:blur(10px); animation:fadeIn 0.8s ease; }
+  .result-scroll.show { display:block; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+
+  .result-header { text-align:center; margin-bottom:28px; }
+  .result-emotion { font-size:2rem; margin-bottom:8px; }
+  .result-date-label { font-size:0.65rem; letter-spacing:0.2em; color:var(--text-dim); margin-bottom:8px; }
+  .result-dream-preview { font-size:0.78rem; color:var(--silver); letter-spacing:0.05em; margin-bottom:4px; font-style:italic; }
+
+  .divider { text-align:center; margin:24px 0; font-size:0.7rem; letter-spacing:0.3em; color:var(--moon-dim); }
+  .fortune-text { font-size:0.88rem; line-height:2.2; letter-spacing:0.06em; color:var(--text); white-space:pre-wrap; }
+
+  .result-actions { display:flex; gap:12px; margin-top:24px; }
+  .save-btn {
+    flex:1; padding:12px; background:rgba(128,144,208,0.1);
+    border:1px solid rgba(128,144,208,0.3); color:var(--moon-bright);
+    font-family:inherit; font-size:0.72rem; letter-spacing:0.15em;
+    cursor:pointer; transition:all .3s; touch-action:manipulation;
+  }
+  .save-btn:hover { background:rgba(128,144,208,0.2); }
+  .reset-btn {
+    flex:1; padding:12px; background:transparent;
+    border:1px solid rgba(128,144,208,0.2); color:var(--text-dim);
+    font-family:inherit; font-size:0.72rem; letter-spacing:0.15em;
+    cursor:pointer; transition:all .3s; touch-action:manipulation;
+  }
+  .reset-btn:hover { border-color:rgba(128,144,208,0.4); color:var(--text); }
+
+  /* 夢日記 */
+  .diary-list { margin-bottom:32px; }
+  .diary-empty { text-align:center; padding:40px; color:var(--text-dim); font-size:0.78rem; letter-spacing:0.1em; }
+  .diary-entry {
+    border:1px solid rgba(128,144,208,0.12); padding:20px;
+    margin-bottom:12px; background:rgba(13,13,42,0.5);
+    cursor:pointer; transition:all .3s;
+  }
+  .diary-entry:hover { border-color:rgba(128,144,208,0.3); background:rgba(128,144,208,0.05); }
+  .diary-entry-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  .diary-entry-date { font-size:0.65rem; letter-spacing:0.1em; color:var(--text-dim); }
+  .diary-entry-emotion { font-size:1.2rem; }
+  .diary-entry-preview { font-size:0.78rem; color:var(--silver); letter-spacing:0.05em; line-height:1.6; }
+  .diary-entry-delete {
+    padding:4px 10px; background:transparent;
+    border:1px solid rgba(128,144,208,0.15); color:var(--text-dim);
+    font-size:0.65rem; cursor:pointer; transition:all .3s;
+    touch-action:manipulation;
+  }
+  .diary-entry-delete:hover { border-color:rgba(200,80,80,0.4); color:#c06060; }
+
+  /* 日記詳細モーダル */
+  .modal-overlay { display:none; position:fixed; inset:0; z-index:200; background:rgba(5,5,16,0.9); backdrop-filter:blur(4px); }
+  .modal-overlay.show { display:flex; align-items:center; justify-content:center; padding:24px; }
+  .modal {
+    max-width:640px; width:100%; max-height:80vh; overflow-y:auto;
+    border:1px solid rgba(128,144,208,0.2); padding:32px;
+    background:rgba(13,13,42,0.95);
+  }
+  .modal-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; }
+  .modal-close { padding:4px 12px; background:transparent; border:1px solid rgba(128,144,208,0.2); color:var(--text-dim); cursor:pointer; font-size:0.75rem; touch-action:manipulation; }
+  .modal-close:hover { border-color:rgba(128,144,208,0.5); color:var(--text); }
+  .modal-emotion { font-size:2rem; margin-bottom:8px; }
+  .modal-date { font-size:0.65rem; letter-spacing:0.15em; color:var(--text-dim); margin-bottom:16px; }
+  .modal-dream { font-size:0.82rem; color:var(--silver); line-height:1.8; margin-bottom:20px; padding:16px; border:1px solid rgba(128,144,208,0.1); font-style:italic; }
+  .modal-reading { font-size:0.85rem; line-height:2; color:var(--text); white-space:pre-wrap; }
+
+  .apikey-wrap { margin-bottom:24px; }
+
+  footer { text-align:center; padding:40px 0 60px; font-size:0.6rem; letter-spacing:0.2em; color:var(--text-dim); }
+</style>
+</head>
+<body>
+<canvas id="skyCanvas"></canvas>
+
+<div class="lang-bar">
+  <button class="lang-btn active" onclick="setLang('ja')" data-lang="ja">🇯🇵 日本語</button>
+  <button class="lang-btn" onclick="setLang('en')" data-lang="en">🇺🇸 English</button>
+  <button class="lang-btn" onclick="setLang('zh')" data-lang="zh">🇨🇳 中文</button>
+  <button class="lang-btn" onclick="setLang('ko')" data-lang="ko">🇰🇷 한국어</button>
+  <button class="lang-btn" onclick="setLang('fr')" data-lang="fr">🇫🇷 Français</button>
+</div>
+
+<div class="wrap">
+  <header>
+    <div class="moon-sigil">
+      <svg viewBox="0 0 90 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="45" cy="45" r="42" stroke="#8090d0" stroke-width="0.5" opacity="0.6"/>
+        <circle cx="45" cy="45" r="30" stroke="#8090d0" stroke-width="0.3" opacity="0.4"/>
+        <!-- 三日月 -->
+        <path d="M45 18 C32 18 22 30 22 45 C22 60 32 72 45 72 C38 65 34 56 34 45 C34 34 38 25 45 18Z" fill="rgba(128,144,208,0.25)" stroke="#8090d0" stroke-width="0.8"/>
+        <!-- 星 -->
+        <circle cx="58" cy="28" r="2.5" fill="rgba(192,200,255,0.6)"/>
+        <circle cx="62" cy="48" r="1.5" fill="rgba(192,200,255,0.4)"/>
+        <circle cx="55" cy="62" r="2" fill="rgba(192,200,255,0.5)"/>
+        <!-- ティック -->
+        <line x1="45" y1="3" x2="45" y2="12" stroke="#8090d0" stroke-width="0.5" opacity="0.5"/>
+        <line x1="45" y1="78" x2="45" y2="87" stroke="#8090d0" stroke-width="0.5" opacity="0.5"/>
+        <line x1="3" y1="45" x2="12" y2="45" stroke="#8090d0" stroke-width="0.5" opacity="0.5"/>
+        <line x1="78" y1="45" x2="87" y2="45" stroke="#8090d0" stroke-width="0.5" opacity="0.5"/>
+        <circle cx="45" cy="45" r="4" fill="rgba(128,144,208,0.2)" stroke="#8090d0" stroke-width="0.5"/>
+      </svg>
+    </div>
+    <h1 id="appTitle">Dream Layer</h1>
+    <p class="subtitle" id="appSubtitle">月と夢の深層占術</p>
+  </header>
+
+  <!-- タブ -->
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('oracle')" id="tabOracle" data-tab="oracle">🌙 <span id="tabOracleLabel">夢を占う</span></button>
+    <button class="tab-btn" onclick="switchTab('diary')" id="tabDiary" data-tab="diary">📖 <span id="tabDiaryLabel">夢日記</span></button>
+  </div>
+
+  <!-- 占いパネル -->
+  <div class="tab-panel active" id="panelOracle">
+    <div class="oracle-form" id="formSection">
+      <div class="corner tl"></div><div class="corner tr"></div>
+      <div class="corner bl"></div><div class="corner br"></div>
+
+      <!-- APIキー -->
+      <div class="apikey-wrap">
+        <div class="field">
+          <label style="display:block;margin-bottom:10px;letter-spacing:0.1em">AIプロバイダー</label>
+          <div style="display:flex;gap:8px;margin-bottom:12px">
+            <button id="providerGroq" onclick="selectProvider('groq')" style="flex:1;padding:10px;background:rgba(128,144,208,0.08);border:1px solid rgba(128,144,208,0.5);color:var(--moon-bright);font-family:inherit;font-size:0.78rem;cursor:pointer;transition:all .3s;touch-action:manipulation">⚡ Groq</button>
+            <button id="providerGemini" onclick="selectProvider('gemini')" style="flex:1;padding:10px;background:transparent;border:1px solid rgba(128,144,208,0.2);color:var(--text-dim);font-family:inherit;font-size:0.78rem;cursor:pointer;transition:all .3s;touch-action:manipulation">✦ Gemini</button>
+          </div>
+          <label id="lApiKey">⚡ Groq APIキー</label>
+          <div style="display:flex;gap:8px;align-items:flex-start">
+            <textarea id="apiKey" rows="2" placeholder="gsk_..." style="flex:1;resize:vertical;font-family:monospace;font-size:0.78rem;-webkit-text-security:disc;text-security:disc"></textarea>
+            <button onclick="toggleApiKeyVisibility()" id="toggleBtn" style="padding:10px 14px;background:transparent;border:1px solid rgba(128,144,208,0.2);color:var(--text-dim);font-size:0.75rem;cursor:pointer;white-space:nowrap;transition:all .3s">表示</button>
+          </div>
+          <p id="apikeyNote" style="font-size:0.62rem;color:var(--text-dim);margin-top:6px;letter-spacing:0.05em;line-height:1.8"></p>
+        </div>
+      </div>
+
+      <!-- 生年月日 -->
+      <div class="field">
+        <label id="lBirth">生年月日（任意）</label>
+        <input type="date" id="birthdate">
+      </div>
+
+      <!-- 夢の感情 -->
+      <div class="field">
+        <label id="lEmotion">夢の感情</label>
+        <div class="emotion-grid" id="emotionGrid"></div>
+      </div>
+
+      <!-- 夢の内容 -->
+      <div class="field">
+        <label id="lDream">夢の内容</label>
+        <textarea id="dreamText" rows="6" style="resize:vertical"></textarea>
+      </div>
+
+      <button class="invoke-btn" id="invokeBtn"></button>
+      <div class="error-msg" id="errorMsg"></div>
+    </div>
+
+    <div class="loading-veil" id="loadingVeil">
+      <div class="orb"></div>
+      <p class="loading-text" id="loadingText"></p>
+    </div>
+
+    <div class="result-scroll" id="resultScroll">
+      <div class="result-header">
+        <div class="result-emotion" id="resultEmotion"></div>
+        <div class="result-date-label" id="resultDateLabel"></div>
+        <div class="result-dream-preview" id="resultDreamPreview"></div>
+      </div>
+      <div class="divider"><span>☽</span></div>
+      <div class="fortune-text" id="fortuneText"></div>
+      <div class="result-actions">
+        <button class="save-btn" id="saveBtn" onclick="saveDiary()"></button>
+        <button class="reset-btn" id="resetBtn" onclick="resetForm()"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 日記パネル -->
+  <div class="tab-panel" id="panelDiary">
+    <div class="diary-list" id="diaryList"></div>
+  </div>
+
+  <footer><p id="footerText"></p></footer>
+</div>
+
+<!-- 日記詳細モーダル -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-emotion" id="modalEmotion"></div>
+        <div class="modal-date" id="modalDate"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕ 閉じる</button>
+    </div>
+    <div class="modal-dream" id="modalDream"></div>
+    <div class="divider"><span>☽</span></div>
+    <div class="modal-reading" id="modalReading"></div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+// i18n
+// ══════════════════════════════════════════
+const EMOTIONS = {
+  ja: [
+    { emoji:'😨', label:'怖い' },
+    { emoji:'😊', label:'楽しい' },
+    { emoji:'😢', label:'悲しい' },
+    { emoji:'😍', label:'幸せ' },
+    { emoji:'😵', label:'不思議' },
+    { emoji:'😰', label:'不安' },
+    { emoji:'😤', label:'怒り' },
+    { emoji:'😌', label:'穏やか' },
+  ],
+  en: [
+    { emoji:'😨', label:'Scary' },
+    { emoji:'😊', label:'Happy' },
+    { emoji:'😢', label:'Sad' },
+    { emoji:'😍', label:'Joyful' },
+    { emoji:'😵', label:'Strange' },
+    { emoji:'😰', label:'Anxious' },
+    { emoji:'😤', label:'Angry' },
+    { emoji:'😌', label:'Peaceful' },
+  ],
+  zh: [
+    { emoji:'😨', label:'恐怖' },
+    { emoji:'😊', label:'快乐' },
+    { emoji:'😢', label:'悲伤' },
+    { emoji:'😍', label:'幸福' },
+    { emoji:'😵', label:'奇怪' },
+    { emoji:'😰', label:'焦虑' },
+    { emoji:'😤', label:'愤怒' },
+    { emoji:'😌', label:'平静' },
+  ],
+  ko: [
+    { emoji:'😨', label:'무서운' },
+    { emoji:'😊', label:'즐거운' },
+    { emoji:'😢', label:'슬픈' },
+    { emoji:'😍', label:'행복한' },
+    { emoji:'😵', label:'이상한' },
+    { emoji:'😰', label:'불안한' },
+    { emoji:'😤', label:'화나는' },
+    { emoji:'😌', label:'평온한' },
+  ],
+  fr: [
+    { emoji:'😨', label:'Effrayant' },
+    { emoji:'😊', label:'Joyeux' },
+    { emoji:'😢', label:'Triste' },
+    { emoji:'😍', label:'Heureux' },
+    { emoji:'😵', label:'Étrange' },
+    { emoji:'😰', label:'Anxieux' },
+    { emoji:'😤', label:'En colère' },
+    { emoji:'😌', label:'Paisible' },
+  ],
+};
+
+const I18N = {
+  ja: {
+    lang:'ja', appTitle:'Dream Layer', appSubtitle:'月と夢の深層占術',
+    tabOracle:'夢を占う', tabDiary:'夢日記',
+    lApiKey:'⚡ Groq APIキー', lBirth:'生年月日（任意）',
+    lEmotion:'夢の感情', lDream:'夢の内容を入力してください',
+    invokeBtn:'夢を読み解く', loadingText:'夢の深層を読み解いています…',
+    saveBtn:'夢日記に保存', resetBtn:'もう一度占う',
+    diaryEmpty:'まだ夢日記がありません。夢を占って保存してみましょう。',
+    footerText:'Dream Layer — 月と夢の深層占術',
+    toggleShow:'表示', toggleHide:'隠す',
+    errApiKey:'Groq APIキーを入力してください',
+    errDream:'夢の内容を入力してください',
+    errAPI:'APIエラーが発生しました',
+    savedMsg:'夢日記に保存しました',
+    apikeyNote:'Groq Console（console.groq.com）に無料登録してAPIキーを取得。完全無料。クレジットカード不要。',
+    system:`あなたは夢分析と占術に精通した夢占い師です。
+夢の内容・感情・生年月日をもとに、詳細で具体的な夢占いを日本語で行ってください。
+以下の内容を含む鑑定文を500〜800文字で生成してください：
+- 夢に登場した象徴・モチーフの意味
+- 夢が示す深層心理
+- 今日・今後へのメッセージとアドバイス
+- 夢からのポジティブな解釈`,
+    buildPrompt: (dream, emotion, bd) =>
+      `夢の内容：${dream}\n感情：${emotion}\n${bd?`生年月日：${bd}\n`:''}今日：${new Date().toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric'})}`
+  },
+  en: {
+    lang:'en', appTitle:'Dream Layer', appSubtitle:'Lunar Dream Oracle',
+    tabOracle:'Oracle', tabDiary:'Dream Journal',
+    lApiKey:'⚡ Groq API Key', lBirth:'Date of Birth (optional)',
+    lEmotion:'Dream Emotion', lDream:'Describe your dream',
+    invokeBtn:'Interpret My Dream', loadingText:'Decoding your dream…',
+    saveBtn:'Save to Journal', resetBtn:'New Dream',
+    diaryEmpty:'No dream entries yet. Interpret a dream and save it.',
+    footerText:'Dream Layer — Lunar Dream Oracle',
+    toggleShow:'Show', toggleHide:'Hide',
+    errApiKey:'Please enter your Groq API key',
+    errDream:'Please describe your dream',
+    errAPI:'API error occurred',
+    savedMsg:'Saved to dream journal',
+    apikeyNote:'Get a free key at Groq Console (console.groq.com). Completely free. No credit card required.',
+    system:`You are an expert dream interpreter versed in symbolism and psychology.
+Based on the dream content, emotion, and birth date, provide a detailed dream reading in English (500-800 words) including:
+- Symbols and motifs in the dream and their meaning
+- Deep psychological interpretation
+- Message and advice for today and the future
+- Positive interpretation from the dream`,
+    buildPrompt: (dream, emotion, bd) =>
+      `Dream: ${dream}\nEmotion: ${emotion}\n${bd?`Birth date: ${bd}\n`:''}Today: ${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}`
+  },
+  zh: {
+    lang:'zh', appTitle:'Dream Layer', appSubtitle:'月之梦境占卜',
+    tabOracle:'解梦', tabDiary:'梦境日记',
+    lApiKey:'⚡ Groq API 密钥', lBirth:'出生日期（可选）',
+    lEmotion:'梦境情感', lDream:'描述您的梦境',
+    invokeBtn:'解读梦境', loadingText:'正在解读梦境深处…',
+    saveBtn:'保存到日记', resetBtn:'重新占卜',
+    diaryEmpty:'还没有梦境记录。解读梦境并保存吧。',
+    footerText:'Dream Layer — 月之梦境占卜',
+    toggleShow:'显示', toggleHide:'隐藏',
+    errApiKey:'请输入 Groq API 密钥',
+    errDream:'请描述您的梦境',
+    errAPI:'API 错误',
+    savedMsg:'已保存到梦境日记',
+    apikeyNote:'在 Groq Console（console.groq.com）免费注册。完全免费，无需信用卡。',
+    system:`你是精通梦境分析和占术的解梦师。根据梦境内容、情感和生日，用中文提供详细的解梦（500-800字），包括梦境象征意义、深层心理解析、今日建议和积极解读。`,
+    buildPrompt: (dream, emotion, bd) =>
+      `梦境：${dream}\n情感：${emotion}\n${bd?`生日：${bd}\n`:''}今天：${new Date().toLocaleDateString('zh-CN',{year:'numeric',month:'long',day:'numeric'})}`
+  },
+  ko: {
+    lang:'ko', appTitle:'Dream Layer', appSubtitle:'달과 꿈의 심층 점술',
+    tabOracle:'꿈 점치기', tabDiary:'꿈 일기',
+    lApiKey:'⚡ Groq API 키', lBirth:'생년월일（선택）',
+    lEmotion:'꿈의 감정', lDream:'꿈의 내용을 입력하세요',
+    invokeBtn:'꿈을 해석하다', loadingText:'꿈의 깊은 곳을 읽고 있습니다…',
+    saveBtn:'꿈 일기에 저장', resetBtn:'다시 점치기',
+    diaryEmpty:'아직 꿈 일기가 없습니다. 꿈을 점치고 저장해보세요.',
+    footerText:'Dream Layer — 달과 꿈의 심층 점술',
+    toggleShow:'표시', toggleHide:'숨기기',
+    errApiKey:'Groq API 키를 입력해 주세요',
+    errDream:'꿈의 내용을 입력해 주세요',
+    errAPI:'API 오류가 발생했습니다',
+    savedMsg:'꿈 일기에 저장했습니다',
+    apikeyNote:'Groq Console(console.groq.com)에서 무료 가입. 완전 무료, 신용카드 불필요.',
+    system:`당신은 꿈 분석과 점술에 정통한 해몽사입니다. 꿈의 내용, 감정, 생년월일을 바탕으로 한국어로 상세한 해몽(500-800자)을 제공하세요. 꿈의 상징, 심층 심리, 오늘의 메시지, 긍정적 해석을 포함하세요.`,
+    buildPrompt: (dream, emotion, bd) =>
+      `꿈：${dream}\n감정：${emotion}\n${bd?`생년월일：${bd}\n`:''}오늘：${new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric'})}`
+  },
+  fr: {
+    lang:'fr', appTitle:'Dream Layer', appSubtitle:'Oracle des Rêves Lunaires',
+    tabOracle:'Oracle', tabDiary:'Journal des Rêves',
+    lApiKey:'⚡ Clé API Groq', lBirth:'Date de naissance (optionnel)',
+    lEmotion:'Émotion du rêve', lDream:'Décrivez votre rêve',
+    invokeBtn:'Interpréter mon Rêve', loadingText:'Décodage de votre rêve…',
+    saveBtn:'Sauvegarder', resetBtn:'Nouveau Rêve',
+    diaryEmpty:"Pas encore d'entrées. Interprétez un rêve et sauvegardez-le.",
+    footerText:'Dream Layer — Oracle des Rêves Lunaires',
+    toggleShow:'Afficher', toggleHide:'Masquer',
+    errApiKey:'Veuillez entrer votre clé API Groq',
+    errDream:'Veuillez décrire votre rêve',
+    errAPI:'Erreur API',
+    savedMsg:'Sauvegardé dans le journal',
+    apikeyNote:'Inscrivez-vous gratuitement sur Groq Console (console.groq.com). Entièrement gratuit, sans carte bancaire.',
+    system:`Vous êtes un interprète expert en rêves et symbolisme. Basé sur le contenu du rêve, l'émotion et la date de naissance, fournissez une interprétation détaillée en français (500-800 mots) incluant les symboles, l'interprétation psychologique, le message pour aujourd'hui et une interprétation positive.`,
+    buildPrompt: (dream, emotion, bd) =>
+      `Rêve: ${dream}\nÉmotion: ${emotion}\n${bd?`Date de naissance: ${bd}\n`:''}Aujourd'hui: ${new Date().toLocaleDateString('fr-FR',{year:'numeric',month:'long',day:'numeric'})}`
+  }
+};
+
+let currentLang = 'ja';
+let selectedEmotion = null;
+let currentResult = null;
+let currentProvider = 'groq';
+
+const PROVIDER_INFO = {
+  groq: {
+    placeholder: 'gsk_...',
+    label: { ja:'⚡ Groq APIキー', en:'⚡ Groq API Key', zh:'⚡ Groq API 密钥', ko:'⚡ Groq API 키', fr:'⚡ Clé API Groq' },
+    note: {
+      ja:'Groq Console（console.groq.com）に無料登録してAPIキーを取得。完全無料。クレジットカード不要。',
+      en:'Get a free key at Groq Console (console.groq.com). Completely free. No credit card required.',
+      zh:'在 Groq Console（console.groq.com）免费注册获取密钥。完全免费，无需信用卡。',
+      ko:'Groq Console(console.groq.com)에서 무료 가입 후 API 키 발급. 완전 무료, 신용카드 불필요.',
+      fr:'Inscrivez-vous gratuitement sur Groq Console (console.groq.com). Entièrement gratuit, sans carte bancaire.',
+    }
+  },
+  gemini: {
+    placeholder: 'AIza...',
+    label: { ja:'✦ Gemini APIキー', en:'✦ Gemini API Key', zh:'✦ Gemini API 密钥', ko:'✦ Gemini API 키', fr:'✦ Clé API Gemini' },
+    note: {
+      ja:'Google AI Studio（aistudio.google.com）で無料取得。複数キーをカンマ区切りで入力すると自動切替。',
+      en:'Get a free key at Google AI Studio (aistudio.google.com). Enter multiple keys separated by commas for auto-rotation.',
+      zh:'在 Google AI Studio（aistudio.google.com）免费获取。多个密钥用逗号分隔可自动切换。',
+      ko:'Google AI Studio(aistudio.google.com)에서 무료 발급. 여러 키를 쉼표로 구분하면 자동 전환됩니다.',
+      fr:'Obtenez une clé gratuite sur Google AI Studio (aistudio.google.com). Plusieurs clés séparées par des virgules pour la rotation automatique.',
+    }
+  }
+};
+
+const savedKeys = { groq: '', gemini: '' };
+
+function selectProvider(provider) {
+  savedKeys[currentProvider] = document.getElementById('apiKey').value;
+  currentProvider = provider;
+  document.getElementById('apiKey').value = savedKeys[provider];
+  document.getElementById('apiKey').placeholder = PROVIDER_INFO[provider].placeholder;
+  document.getElementById('apiKey').style.webkitTextSecurity = 'disc';
+  document.getElementById('apiKey').style.textSecurity = 'disc';
+  document.getElementById('toggleBtn').textContent = I18N[currentLang].toggleShow;
+  updateProviderUI();
+}
+
+function updateProviderUI() {
+  const info = PROVIDER_INFO[currentProvider];
+  const lang = currentLang;
+  document.getElementById('lApiKey').textContent = info.label[lang] || info.label.ja;
+  document.getElementById('apikeyNote').textContent = info.note[lang] || info.note.ja;
+  // ボタンスタイル更新
+  ['groq','gemini'].forEach(p => {
+    const btn = document.getElementById('provider'+p.charAt(0).toUpperCase()+p.slice(1));
+    if(!btn) return;
+    if(p === currentProvider) {
+      btn.style.background = 'rgba(128,144,208,0.08)';
+      btn.style.borderColor = 'rgba(128,144,208,0.5)';
+      btn.style.color = 'var(--moon-bright)';
+    } else {
+      btn.style.background = 'transparent';
+      btn.style.borderColor = 'rgba(128,144,208,0.2)';
+      btn.style.color = 'var(--text-dim)';
+    }
+  });
+}
+
+function setLang(lang) {
+  currentLang = lang;
+  const t = I18N[lang];
+  document.documentElement.lang = t.lang;
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
+  document.getElementById('appTitle').textContent = t.appTitle;
+  document.getElementById('appSubtitle').textContent = t.appSubtitle;
+  document.getElementById('tabOracleLabel').textContent = t.tabOracle;
+  document.getElementById('tabDiaryLabel').textContent = t.tabDiary;
+  document.getElementById('lApiKey').textContent = t.lApiKey;
+  document.getElementById('lBirth').textContent = t.lBirth;
+  document.getElementById('lEmotion').textContent = t.lEmotion;
+  document.getElementById('lDream').textContent = t.lDream;
+  document.getElementById('dreamText').placeholder = t.lDream;
+  document.getElementById('invokeBtn').textContent = t.invokeBtn;
+  document.getElementById('loadingText').textContent = t.loadingText;
+  document.getElementById('saveBtn').textContent = t.saveBtn;
+  document.getElementById('resetBtn').textContent = t.resetBtn;
+  document.getElementById('footerText').textContent = t.footerText;
+  document.getElementById('toggleBtn').textContent = t.toggleShow;
+  document.title = t.appTitle;
+  updateProviderUI();
+  renderEmotions();
+  renderDiary();
+}
+
+function renderEmotions() {
+  const grid = document.getElementById('emotionGrid');
+  const emotions = EMOTIONS[currentLang] || EMOTIONS.ja;
+  grid.innerHTML = '';
+  emotions.forEach(e => {
+    const btn = document.createElement('button');
+    btn.className = 'emotion-btn' + (selectedEmotion && selectedEmotion.emoji === e.emoji ? ' active' : '');
+    btn.innerHTML = `${e.emoji} ${e.label}`;
+    btn.onclick = () => selectEmotion(e);
+    btn.addEventListener('touchend', function(ev) { ev.preventDefault(); selectEmotion(e); }, {passive:false});
+    grid.appendChild(btn);
+  });
+}
+
+function selectEmotion(e) {
+  selectedEmotion = e;
+  renderEmotions();
+}
+
+// ストレージ
+function storageSave(key, value) {
+  try { localStorage.setItem(key, value); } catch(ex) {}
+  try {
+    const expires = new Date(); expires.setFullYear(expires.getFullYear()+1);
+    document.cookie = encodeURIComponent(key)+'='+encodeURIComponent(value)+'; expires='+expires.toUTCString()+'; path=/; SameSite=Lax';
+  } catch(ex) {}
+}
+function storageLoad(key) {
+  try { const v=localStorage.getItem(key); if(v!==null)return v; } catch(ex) {}
+  try {
+    const name=encodeURIComponent(key)+'=';
+    for(let p of document.cookie.split(';')) { p=p.trim(); if(p.startsWith(name))return decodeURIComponent(p.substring(name.length)); }
+  } catch(ex) {}
+  return null;
+}
+
+function saveSettings() {
+  savedKeys[currentProvider] = document.getElementById('apiKey').value;
+  const data = { groqKey:savedKeys.groq, geminiKey:savedKeys.gemini, provider:currentProvider, birthdate:document.getElementById('birthdate').value, lang:currentLang };
+  try { storageSave('dreamlayer_settings', JSON.stringify(data)); } catch(e) {}
+}
+function loadSettings() {
+  try {
+    const raw = storageLoad('dreamlayer_settings');
+    if(!raw)return;
+    const d = JSON.parse(raw);
+    if(d.groqKey) savedKeys.groq = d.groqKey;
+    if(d.geminiKey) savedKeys.gemini = d.geminiKey;
+    if(d.provider) { currentProvider = d.provider; }
+    document.getElementById('apiKey').value = savedKeys[currentProvider];
+    document.getElementById('apiKey').placeholder = PROVIDER_INFO[currentProvider].placeholder;
+    if(d.birthdate) document.getElementById('birthdate').value = d.birthdate;
+    if(d.lang) setLang(d.lang);
+    updateProviderUI();
+  } catch(e) {}
+}
+
+// 夢日記
+function getDiary() {
+  try { const raw=storageLoad('dreamlayer_diary'); return raw?JSON.parse(raw):[]; } catch(e) { return []; }
+}
+function saveDiaryEntry(entry) {
+  const diary = getDiary();
+  diary.unshift(entry);
+  if(diary.length>50) diary.pop();
+  storageSave('dreamlayer_diary', JSON.stringify(diary));
+}
+
+function saveDiary() {
+  if(!currentResult) return;
+  const t = I18N[currentLang];
+  saveDiaryEntry(currentResult);
+  const btn = document.getElementById('saveBtn');
+  btn.textContent = '✓ ' + t.savedMsg;
+  btn.style.borderColor = 'rgba(128,144,208,0.6)';
+  setTimeout(() => { btn.textContent = t.saveBtn; btn.style.borderColor = ''; }, 2000);
+}
+
+function renderDiary() {
+  const list = document.getElementById('diaryList');
+  const diary = getDiary();
+  const t = I18N[currentLang];
+  if(diary.length === 0) {
+    list.innerHTML = `<div class="diary-empty">${t.diaryEmpty}</div>`;
+    return;
+  }
+  list.innerHTML = diary.map((entry, i) => `
+    <div class="diary-entry" onclick="openModal(${i})">
+      <div class="diary-entry-header">
+        <div>
+          <span class="diary-entry-emotion">${entry.emotion}</span>
+          <span class="diary-entry-date"> ${entry.date}</span>
+        </div>
+        <button class="diary-entry-delete" onclick="deleteDiary(event,${i})">削除</button>
+      </div>
+      <div class="diary-entry-preview">${entry.dream.slice(0,60)}${entry.dream.length>60?'…':''}</div>
+    </div>
+  `).join('');
+}
+
+function deleteDiary(e, i) {
+  e.stopPropagation();
+  const diary = getDiary();
+  diary.splice(i, 1);
+  storageSave('dreamlayer_diary', JSON.stringify(diary));
+  renderDiary();
+}
+
+function openModal(i) {
+  const diary = getDiary();
+  const entry = diary[i];
+  if(!entry) return;
+  document.getElementById('modalEmotion').textContent = entry.emotion;
+  document.getElementById('modalDate').textContent = entry.date;
+  document.getElementById('modalDream').textContent = entry.dream;
+  document.getElementById('modalReading').textContent = entry.reading;
+  document.getElementById('modalOverlay').className = 'modal-overlay show';
+}
+function closeModal(e) {
+  if(!e || e.target === document.getElementById('modalOverlay') || e.type === 'click') {
+    document.getElementById('modalOverlay').className = 'modal-overlay';
+  }
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.getElementById('panelOracle').classList.toggle('active', tab==='oracle');
+  document.getElementById('panelDiary').classList.toggle('active', tab==='diary');
+  if(tab==='diary') renderDiary();
+}
+
+function toggleApiKeyVisibility() {
+  const input = document.getElementById('apiKey');
+  const btn = document.getElementById('toggleBtn');
+  const t = I18N[currentLang];
+  const isHidden = input.style.webkitTextSecurity !== 'none';
+  input.style.webkitTextSecurity = isHidden ? 'none' : 'disc';
+  input.style.textSecurity = isHidden ? 'none' : 'disc';
+  btn.textContent = isHidden ? t.toggleHide : t.toggleShow;
+}
+
+function showError(msg) { const el=document.getElementById('errorMsg'); el.textContent=msg; el.className='error-msg show'; }
+function resetForm() {
+  document.getElementById('resultScroll').className='result-scroll';
+  document.getElementById('formSection').style.display='block';
+  document.getElementById('errorMsg').className='error-msg';
+  currentResult=null;
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+// メイン処理
+async function invokeDream() {
+  try {
+  const t = I18N[currentLang];
+  const apiKey = document.getElementById('apiKey').value.trim();
+  const dreamText = document.getElementById('dreamText').value.trim();
+  const birthdate = document.getElementById('birthdate').value;
+
+  document.getElementById('errorMsg').className='error-msg';
+  if(!apiKey) { showError(t.errApiKey); return; }
+  if(!dreamText) { showError(t.errDream); return; }
+
+  const emotionStr = selectedEmotion ? `${selectedEmotion.emoji} ${selectedEmotion.label}` : '不明';
+  try { saveSettings(); } catch(e) {}
+
+  document.getElementById('formSection').style.display='none';
+  document.getElementById('loadingVeil').className='loading-veil show';
+  document.getElementById('resultScroll').className='result-scroll';
+
+  const prompt = t.system + '\n\n' + t.buildPrompt(dreamText, emotionStr, birthdate);
+
+  let text = '';
+
+  if(currentProvider === 'gemini') {
+    // ── Gemini REST API ──
+    const geminiKeys = apiKey.replace(/，/g,',').split(/[,\n]/).map(k=>k.trim()).filter(k=>k.length>5);
+    if(geminiKeys.length===0) throw new Error('NO_KEY');
+    const GEMINI_MODELS = ['gemini-1.5-flash-8b','gemini-1.5-flash','gemini-2.0-flash'];
+    let geminiSucceeded = false;
+    outer:
+    for(const model of GEMINI_MODELS) {
+      for(const key of geminiKeys) {
+        try {
+          const res = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
+            { method:'POST', headers:{'Content-Type':'application/json'},
+              body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{maxOutputTokens:1200,temperature:0.9}}) }
+          );
+          const data = await res.json();
+          console.log('Gemini response:', model, res.status, JSON.stringify(data).slice(0,300));
+          if(res.ok) {
+            const candidate = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            if(candidate) { text=candidate; geminiSucceeded=true; break outer; }
+          }
+        } catch(e) { console.log('Gemini fetch error:', model, e); continue; }
+      }
+    }
+    if(!geminiSucceeded) throw new Error('GEMINI_FAILED');
+
+  } else {
+    // ── Groq ──
+    const GROQ_MODELS = ['llama-3.3-70b-versatile','llama3-70b-8192','gemma2-9b-it','llama3-8b-8192'];
+    let groqSucceeded=false, groqLastErr='';
+    for(const model of GROQ_MODELS) {
+      try {
+        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method:'POST',
+          headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
+          body:JSON.stringify({model,max_tokens:1200,temperature:0.9,messages:[{role:'user',content:prompt}]})
+        });
+        const data = await res.json();
+        if(res.ok && data.choices?.[0]?.message?.content) {
+          text=data.choices[0].message.content; groqSucceeded=true; break;
+        }
+        groqLastErr=`${model}: ${res.status} ${data?.error?.message||''}`;
+      } catch(e) { groqLastErr=`${model}: ネットワークエラー`; }
+    }
+    if(!groqSucceeded) throw new Error('GROQ_FAILED:'+groqLastErr);
+  }
+
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric'});
+
+  currentResult = {
+    emotion: selectedEmotion ? selectedEmotion.emoji : '🌙',
+    date: dateStr,
+    dream: dreamText,
+    reading: text,
+    lang: currentLang
+  };
+
+  document.getElementById('loadingVeil').className='loading-veil';
+  document.getElementById('resultEmotion').textContent = selectedEmotion ? `${selectedEmotion.emoji} ${selectedEmotion.label}` : '🌙';
+  document.getElementById('resultDateLabel').textContent = dateStr;
+  document.getElementById('resultDreamPreview').textContent = `"${dreamText.slice(0,40)}${dreamText.length>40?'…':''}"`;
+  document.getElementById('fortuneText').textContent = text;
+  document.getElementById('resultScroll').className='result-scroll show';
+  document.getElementById('saveBtn').textContent = t.saveBtn;
+  document.getElementById('saveBtn').style.borderColor='';
+
+  } catch(err) {
+    document.getElementById('loadingVeil').className='loading-veil';
+    document.getElementById('formSection').style.display='block';
+    const msg=err.message||'';
+    if(msg.startsWith('GROQ_FAILED:')) showError('Groqエラー: '+msg.slice(12));
+    else if(msg==='GEMINI_FAILED') showError('Gemini APIエラー: キーを確認してください。日本のアカウントでは無料枠が制限される場合があります。');
+    else if(msg==='NO_KEY') showError(t.errApiKey);
+    else showError(I18N[currentLang].errAPI+(msg?'（'+msg.slice(0,60)+'）':''));
+  }
+}
+
+// ══════════════════════════════════════════
+// Night Sky Canvas（青・紫系）
+// ══════════════════════════════════════════
+(function() {
+  const canvas=document.getElementById('skyCanvas');
+  const ctx=canvas.getContext('2d');
+  function resize(){canvas.width=window.innerWidth;canvas.height=window.innerHeight;}
+  resize();
+  window.addEventListener('resize',()=>{resize();initStars();});
+
+  const STAR_COUNT=320;let stars=[];
+  function initStars(){
+    stars=[];
+    for(let i=0;i<STAR_COUNT;i++){
+      const r=Math.random();
+      stars.push({
+        x:Math.random()*canvas.width, y:Math.random()*canvas.height,
+        radius:r<0.6?Math.random()*0.8+0.2:r<0.9?Math.random()*1.2+0.8:Math.random()*1.8+1.2,
+        baseAlpha:Math.random()*0.5+0.3, alpha:0,
+        twinkleSpeed:Math.random()*0.015+0.004,
+        twinkleOffset:Math.random()*Math.PI*2,
+        color:r<0.15?'#b0c0f0':r<0.3?'#9060e0':'#ffffff',
+      });
+    }
+  }
+
+  function drawNebula(){
+    const blobs=[
+      {x:0.2,y:0.3,rx:0.3,ry:0.25,color:'rgba(40,20,80,0.18)'},
+      {x:0.8,y:0.6,rx:0.25,ry:0.3,color:'rgba(20,30,80,0.20)'},
+      {x:0.5,y:0.1,rx:0.2,ry:0.15,color:'rgba(60,40,120,0.12)'},
+      {x:0.3,y:0.8,rx:0.18,ry:0.12,color:'rgba(30,20,60,0.15)'},
+    ];
+    blobs.forEach(b=>{
+      const grd=ctx.createRadialGradient(b.x*canvas.width,b.y*canvas.height,0,b.x*canvas.width,b.y*canvas.height,Math.max(b.rx*canvas.width,b.ry*canvas.height));
+      grd.addColorStop(0,b.color);grd.addColorStop(1,'transparent');
+      ctx.fillStyle=grd;ctx.beginPath();
+      ctx.ellipse(b.x*canvas.width,b.y*canvas.height,b.rx*canvas.width,b.ry*canvas.height,0,0,Math.PI*2);ctx.fill();
+    });
+  }
+
+  // 月
+  function drawMoon(){
+    const mx=canvas.width*0.85, my=canvas.height*0.12, mr=40;
+    const grd=ctx.createRadialGradient(mx-mr*0.3,my-mr*0.3,0,mx,my,mr);
+    grd.addColorStop(0,'rgba(200,210,255,0.7)');
+    grd.addColorStop(0.6,'rgba(160,176,240,0.4)');
+    grd.addColorStop(1,'rgba(128,144,208,0.1)');
+    ctx.fillStyle=grd;ctx.beginPath();ctx.arc(mx,my,mr,0,Math.PI*2);ctx.fill();
+    // 月の輝き
+    const grd2=ctx.createRadialGradient(mx,my,0,mx,my,mr*2);
+    grd2.addColorStop(0,'rgba(128,144,208,0.08)');grd2.addColorStop(1,'transparent');
+    ctx.fillStyle=grd2;ctx.beginPath();ctx.arc(mx,my,mr*2,0,Math.PI*2);ctx.fill();
+  }
+
+  const METEOR_MAX=4;let meteors=[];
+  function spawnMeteor(){
+    if(meteors.length>=METEOR_MAX)return;
+    const angle=(Math.random()*30+15)*Math.PI/180;
+    const speed=Math.random()*7+5;
+    meteors.push({
+      x:Math.random()*canvas.width*1.2-canvas.width*0.1,
+      y:Math.random()*canvas.height*0.4,
+      vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,
+      len:Math.random()*160+80,
+      color:`rgba(${Math.random()<0.4?'176,192,255':'255,255,255'},${Math.random()*0.4+0.6})`,
+      alpha:0,phase:'fadein',life:0,maxLife:Math.random()*40+25,trail:[]
+    });
+  }
+  function scheduleMeteor(){setTimeout(()=>{spawnMeteor();scheduleMeteor();},Math.random()*3000+1000);}
+  scheduleMeteor();setTimeout(spawnMeteor,500);
+
+  function updateMeteors(){
+    meteors=meteors.filter(m=>m.phase!=='dead');
+    meteors.forEach(m=>{
+      m.trail.push({x:m.x,y:m.y});if(m.trail.length>20)m.trail.shift();
+      m.x+=m.vx;m.y+=m.vy;m.life++;
+      if(m.phase==='fadein'){m.alpha=Math.min(1,m.alpha+0.08);if(m.alpha>=1)m.phase='live';}
+      else if(m.phase==='live'){if(m.life>m.maxLife)m.phase='fadeout';}
+      else if(m.phase==='fadeout'){m.alpha=Math.max(0,m.alpha-0.06);if(m.alpha<=0)m.phase='dead';}
+      if(m.x>canvas.width+200||m.y>canvas.height+200)m.phase='dead';
+    });
+  }
+  function drawMeteors(){
+    meteors.forEach(m=>{
+      if(m.trail.length<2)return;
+      ctx.save();ctx.globalAlpha=m.alpha;
+      for(let i=1;i<m.trail.length;i++){
+        const t=i/m.trail.length;
+        ctx.beginPath();ctx.moveTo(m.trail[i-1].x,m.trail[i-1].y);ctx.lineTo(m.trail[i].x,m.trail[i].y);
+        ctx.strokeStyle=m.color.replace(/[\d.]+\)$/,`${t*0.4})`);ctx.lineWidth=t*1.5;ctx.stroke();
+      }
+      ctx.restore();
+    });
+  }
+
+  let frame=0;
+  function draw(){
+    ctx.fillStyle='rgba(5,5,16,0.15)';ctx.fillRect(0,0,canvas.width,canvas.height);
+    if(frame===0){ctx.fillStyle='#050510';ctx.fillRect(0,0,canvas.width,canvas.height);drawNebula();drawMoon();}
+    stars.forEach(s=>{
+      s.alpha=s.baseAlpha*(0.5+0.5*Math.sin(frame*s.twinkleSpeed+s.twinkleOffset));
+      ctx.globalAlpha=s.alpha;ctx.fillStyle=s.color;
+      ctx.beginPath();ctx.arc(s.x,s.y,s.radius,0,Math.PI*2);ctx.fill();
+    });
+    ctx.globalAlpha=1;updateMeteors();drawMeteors();
+    frame++;requestAnimationFrame(draw);
+  }
+  initStars();draw();
+})();
+
+// タッチイベント
+document.querySelectorAll('.lang-btn').forEach(btn=>{
+  btn.addEventListener('touchend',function(e){e.preventDefault();setLang(this.dataset.lang);},{passive:false});
+});
+
+document.addEventListener('DOMContentLoaded',function(){
+  const btn=document.getElementById('invokeBtn');
+  if(btn)btn.addEventListener('click',function(e){e.preventDefault();invokeDream();});
+});
+
+setLang('ja');
+loadSettings();
+</script>
+</body>
+</html>
