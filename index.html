@@ -272,17 +272,12 @@
       <!-- APIキー -->
       <div class="apikey-wrap">
         <div class="field">
-          <label style="display:block;margin-bottom:10px;letter-spacing:0.1em">AIプロバイダー</label>
-          <div style="display:flex;gap:8px;margin-bottom:12px">
-            <button id="providerGroq" onclick="selectProvider('groq')" style="flex:1;padding:10px;background:rgba(128,144,208,0.08);border:1px solid rgba(128,144,208,0.5);color:var(--moon-bright);font-family:inherit;font-size:0.78rem;cursor:pointer;transition:all .3s;touch-action:manipulation">⚡ Groq</button>
-            <button id="providerGemini" onclick="selectProvider('gemini')" style="flex:1;padding:10px;background:transparent;border:1px solid rgba(128,144,208,0.2);color:var(--text-dim);font-family:inherit;font-size:0.78rem;cursor:pointer;transition:all .3s;touch-action:manipulation">✦ Gemini</button>
-          </div>
           <label id="lApiKey">⚡ Groq APIキー</label>
           <div style="display:flex;gap:8px;align-items:flex-start">
             <textarea id="apiKey" rows="2" placeholder="gsk_..." style="flex:1;resize:vertical;font-family:monospace;font-size:0.78rem;-webkit-text-security:disc;text-security:disc"></textarea>
             <button onclick="toggleApiKeyVisibility()" id="toggleBtn" style="padding:10px 14px;background:transparent;border:1px solid rgba(128,144,208,0.2);color:var(--text-dim);font-size:0.75rem;cursor:pointer;white-space:nowrap;transition:all .3s">表示</button>
           </div>
-          <p id="apikeyNote" style="font-size:0.62rem;color:var(--text-dim);margin-top:6px;letter-spacing:0.05em;line-height:1.8"></p>
+          <p id="apikeyNote" style="font-size:0.62rem;color:var(--text-dim);margin-top:6px;letter-spacing:0.05em;line-height:1.8">Groq Console（console.groq.com）に無料登録してAPIキーを取得。完全無料。クレジットカード不要。</p>
         </div>
       </div>
 
@@ -521,65 +516,18 @@ Based on the dream content, emotion, and birth date, provide a detailed dream re
 let currentLang = 'ja';
 let selectedEmotion = null;
 let currentResult = null;
-let currentProvider = 'groq';
 
-const PROVIDER_INFO = {
-  groq: {
-    placeholder: 'gsk_...',
-    label: { ja:'⚡ Groq APIキー', en:'⚡ Groq API Key', zh:'⚡ Groq API 密钥', ko:'⚡ Groq API 키', fr:'⚡ Clé API Groq' },
-    note: {
-      ja:'Groq Console（console.groq.com）に無料登録してAPIキーを取得。完全無料。クレジットカード不要。',
-      en:'Get a free key at Groq Console (console.groq.com). Completely free. No credit card required.',
-      zh:'在 Groq Console（console.groq.com）免费注册获取密钥。完全免费，无需信用卡。',
-      ko:'Groq Console(console.groq.com)에서 무료 가입 후 API 키 발급. 완전 무료, 신용카드 불필요.',
-      fr:'Inscrivez-vous gratuitement sur Groq Console (console.groq.com). Entièrement gratuit, sans carte bancaire.',
-    }
-  },
-  gemini: {
-    placeholder: 'AIza...',
-    label: { ja:'✦ Gemini APIキー', en:'✦ Gemini API Key', zh:'✦ Gemini API 密钥', ko:'✦ Gemini API 키', fr:'✦ Clé API Gemini' },
-    note: {
-      ja:'Google AI Studio（aistudio.google.com）で無料取得。複数キーをカンマ区切りで入力すると自動切替。',
-      en:'Get a free key at Google AI Studio (aistudio.google.com). Enter multiple keys separated by commas for auto-rotation.',
-      zh:'在 Google AI Studio（aistudio.google.com）免费获取。多个密钥用逗号分隔可自动切换。',
-      ko:'Google AI Studio(aistudio.google.com)에서 무료 발급. 여러 키를 쉼표로 구분하면 자동 전환됩니다.',
-      fr:'Obtenez une clé gratuite sur Google AI Studio (aistudio.google.com). Plusieurs clés séparées par des virgules pour la rotation automatique.',
-    }
-  }
+const GROQ_NOTE = {
+  ja:'Groq Console（console.groq.com）に無料登録してAPIキーを取得。完全無料。クレジットカード不要。',
+  en:'Get a free key at Groq Console (console.groq.com). Completely free. No credit card required.',
+  zh:'在 Groq Console（console.groq.com）免费注册获取密钥。完全免费，无需信用卡。',
+  ko:'Groq Console(console.groq.com)에서 무료 가입 후 API 키 발급. 완전 무료, 신용카드 불필요.',
+  fr:'Inscrivez-vous gratuitement sur Groq Console (console.groq.com). Entièrement gratuit, sans carte bancaire.',
 };
 
-const savedKeys = { groq: '', gemini: '' };
-
-function selectProvider(provider) {
-  savedKeys[currentProvider] = document.getElementById('apiKey').value;
-  currentProvider = provider;
-  document.getElementById('apiKey').value = savedKeys[provider];
-  document.getElementById('apiKey').placeholder = PROVIDER_INFO[provider].placeholder;
-  document.getElementById('apiKey').style.webkitTextSecurity = 'disc';
-  document.getElementById('apiKey').style.textSecurity = 'disc';
-  document.getElementById('toggleBtn').textContent = I18N[currentLang].toggleShow;
-  updateProviderUI();
-}
-
 function updateProviderUI() {
-  const info = PROVIDER_INFO[currentProvider];
-  const lang = currentLang;
-  document.getElementById('lApiKey').textContent = info.label[lang] || info.label.ja;
-  document.getElementById('apikeyNote').textContent = info.note[lang] || info.note.ja;
-  // ボタンスタイル更新
-  ['groq','gemini'].forEach(p => {
-    const btn = document.getElementById('provider'+p.charAt(0).toUpperCase()+p.slice(1));
-    if(!btn) return;
-    if(p === currentProvider) {
-      btn.style.background = 'rgba(128,144,208,0.08)';
-      btn.style.borderColor = 'rgba(128,144,208,0.5)';
-      btn.style.color = 'var(--moon-bright)';
-    } else {
-      btn.style.background = 'transparent';
-      btn.style.borderColor = 'rgba(128,144,208,0.2)';
-      btn.style.color = 'var(--text-dim)';
-    }
-  });
+  const noteEl = document.getElementById('apikeyNote');
+  if(noteEl) noteEl.textContent = GROQ_NOTE[currentLang] || GROQ_NOTE.ja;
 }
 
 function setLang(lang) {
@@ -645,8 +593,7 @@ function storageLoad(key) {
 }
 
 function saveSettings() {
-  savedKeys[currentProvider] = document.getElementById('apiKey').value;
-  const data = { groqKey:savedKeys.groq, geminiKey:savedKeys.gemini, provider:currentProvider, birthdate:document.getElementById('birthdate').value, lang:currentLang };
+  const data = { apiKey:document.getElementById('apiKey').value, birthdate:document.getElementById('birthdate').value, lang:currentLang };
   try { storageSave('dreamlayer_settings', JSON.stringify(data)); } catch(e) {}
 }
 function loadSettings() {
@@ -654,14 +601,9 @@ function loadSettings() {
     const raw = storageLoad('dreamlayer_settings');
     if(!raw)return;
     const d = JSON.parse(raw);
-    if(d.groqKey) savedKeys.groq = d.groqKey;
-    if(d.geminiKey) savedKeys.gemini = d.geminiKey;
-    if(d.provider) { currentProvider = d.provider; }
-    document.getElementById('apiKey').value = savedKeys[currentProvider];
-    document.getElementById('apiKey').placeholder = PROVIDER_INFO[currentProvider].placeholder;
+    if(d.apiKey) document.getElementById('apiKey').value = d.apiKey;
     if(d.birthdate) document.getElementById('birthdate').value = d.birthdate;
     if(d.lang) setLang(d.lang);
-    updateProviderUI();
   } catch(e) {}
 }
 
@@ -779,54 +721,23 @@ async function invokeDream() {
 
   const prompt = t.system + '\n\n' + t.buildPrompt(dreamText, emotionStr, birthdate);
 
-  let text = '';
-
-  if(currentProvider === 'gemini') {
-    // ── Gemini REST API ──
-    const geminiKeys = apiKey.replace(/，/g,',').split(/[,\n]/).map(k=>k.trim()).filter(k=>k.length>5);
-    if(geminiKeys.length===0) throw new Error('NO_KEY');
-    const GEMINI_MODELS = ['gemini-1.5-flash-8b','gemini-1.5-flash','gemini-2.0-flash'];
-    let geminiSucceeded = false;
-    outer:
-    for(const model of GEMINI_MODELS) {
-      for(const key of geminiKeys) {
-        try {
-          const res = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
-            { method:'POST', headers:{'Content-Type':'application/json'},
-              body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{maxOutputTokens:1200,temperature:0.9}}) }
-          );
-          const data = await res.json();
-          console.log('Gemini response:', model, res.status, JSON.stringify(data).slice(0,300));
-          if(res.ok) {
-            const candidate = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-            if(candidate) { text=candidate; geminiSucceeded=true; break outer; }
-          }
-        } catch(e) { console.log('Gemini fetch error:', model, e); continue; }
+  let text='', groqSucceeded=false, groqLastErr='';
+  const GROQ_MODELS = ['llama-3.3-70b-versatile','llama3-70b-8192','gemma2-9b-it','llama3-8b-8192'];
+  for(const model of GROQ_MODELS) {
+    try {
+      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
+        body:JSON.stringify({model,max_tokens:1200,temperature:0.9,messages:[{role:'user',content:prompt}]})
+      });
+      const data = await res.json();
+      if(res.ok && data.choices?.[0]?.message?.content) {
+        text=data.choices[0].message.content; groqSucceeded=true; break;
       }
-    }
-    if(!geminiSucceeded) throw new Error('GEMINI_FAILED');
-
-  } else {
-    // ── Groq ──
-    const GROQ_MODELS = ['llama-3.3-70b-versatile','llama3-70b-8192','gemma2-9b-it','llama3-8b-8192'];
-    let groqSucceeded=false, groqLastErr='';
-    for(const model of GROQ_MODELS) {
-      try {
-        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-          method:'POST',
-          headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
-          body:JSON.stringify({model,max_tokens:1200,temperature:0.9,messages:[{role:'user',content:prompt}]})
-        });
-        const data = await res.json();
-        if(res.ok && data.choices?.[0]?.message?.content) {
-          text=data.choices[0].message.content; groqSucceeded=true; break;
-        }
-        groqLastErr=`${model}: ${res.status} ${data?.error?.message||''}`;
-      } catch(e) { groqLastErr=`${model}: ネットワークエラー`; }
-    }
-    if(!groqSucceeded) throw new Error('GROQ_FAILED:'+groqLastErr);
+      groqLastErr=`${model}: ${res.status} ${data?.error?.message||''}`;
+    } catch(e) { groqLastErr=`${model}: ネットワークエラー`; }
   }
+  if(!groqSucceeded) throw new Error('GROQ_FAILED:'+groqLastErr);
 
   const now = new Date();
   const dateStr = now.toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric'});
@@ -853,8 +764,6 @@ async function invokeDream() {
     document.getElementById('formSection').style.display='block';
     const msg=err.message||'';
     if(msg.startsWith('GROQ_FAILED:')) showError('Groqエラー: '+msg.slice(12));
-    else if(msg==='GEMINI_FAILED') showError('Gemini APIエラー: キーを確認してください。日本のアカウントでは無料枠が制限される場合があります。');
-    else if(msg==='NO_KEY') showError(t.errApiKey);
     else showError(I18N[currentLang].errAPI+(msg?'（'+msg.slice(0,60)+'）':''));
   }
 }
